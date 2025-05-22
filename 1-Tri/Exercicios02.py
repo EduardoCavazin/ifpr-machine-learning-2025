@@ -65,3 +65,37 @@ print("Exercício 09 :" , twelfth)
 #Exercício 10 -> Laço de repetição (10x), imprimindo 3 elementos por repetição
 for i in range(0, len(lista), 3):
     print("Exercício 10 :" , lista[i:i+3])
+    
+#Transformar tabela em objeto array
+table = [
+            [1,2,3],
+            [4,5,6],
+            [7,8,9]
+        ]
+print("Tabela original:", table)
+table2 = np.array(table)
+print("Tabela transformada em array:", table2)
+print("Num. de dimensões:", table2.ndim)
+print("Mostar o num. 5:", table2[1,1])
+print("Mostrar a última linha:", table2[:-1])
+print("Mostrar a primeira coluna:", table2[:,0])
+
+#Exercício 12 -> Transpor a tabela e armazenar em outra variável
+tabela = np.matrix([['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
+                     ['k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't'],
+                     ['u', 'v', 'w', 'x', 'y', 'z', '@', '#', '*', '+']])
+
+tabela_t = tabela.T
+print('Tabela transposta:', tabela_t)
+
+#Exercício 13 -> Capturar o elemento linha=2 e coluna=3
+element = tabela_t[1, 2]
+print("Exercício 13:", element)
+
+#Exercício 14 -> Transformar a tabela em um shape (10, 3)
+tabela2 = tabela.reshape((10, 3))
+print("Exercício 14 -> Tabela 2:", tabela2)
+
+#Exercício 15 -> Imprimir cada coluna da tabela2
+for i in range(tabela2.shape[1]):
+    print("Exercício 15:", tabela2[:, i])
