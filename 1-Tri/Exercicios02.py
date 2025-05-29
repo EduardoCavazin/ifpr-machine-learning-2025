@@ -81,21 +81,48 @@ print("Mostrar a última linha:", table2[:-1])
 print("Mostrar a primeira coluna:", table2[:,0])
 
 #Exercício 12 -> Transpor a tabela e armazenar em outra variável
-tabela = np.matrix([['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
-                     ['k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't'],
-                     ['u', 'v', 'w', 'x', 'y', 'z', '@', '#', '*', '+']])
+tabela = np.array([['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j'],
+                   ['k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't'],
+                   ['u', 'v', 'w', 'x', 'y', 'z', '@', '#', '*', '+']])
 
+print('Tabela original:', tabela)
 tabela_t = tabela.T
 print('Tabela transposta:', tabela_t)
 
 #Exercício 13 -> Capturar o elemento linha=2 e coluna=3
-element = tabela_t[1, 2]
+element = tabela[2][3] 
 print("Exercício 13:", element)
 
 #Exercício 14 -> Transformar a tabela em um shape (10, 3)
-tabela2 = tabela.reshape((10, 3))
-print("Exercício 14 -> Tabela 2:", tabela2)
+tabela2 = tabela.T
+for linha in tabela2:
+    print("linha -->", linha)
 
 #Exercício 15 -> Imprimir cada coluna da tabela2
-for i in range(tabela2.shape[1]):
-    print("Exercício 15:", tabela2[:, i])
+for coluna in tabela2.T:
+    print("Coluna -->", coluna)
+
+    
+#Exercício 16 -> Capturar da tabela os elementos do meio e colocar na variável: tabela3
+tabela3 = tabela.reshape(-1, 5)
+tabela3 = tabela3[1:-1, 1:-1]
+print("Exercício 16 ->")
+print(tabela3)
+
+#Exercício 17 -> Imprimir o shape da tabela3
+print("Exercício 17 -> Shape da Tabela3:", tabela3.shape)
+
+#Exercício 18 -> Imprimir todas colunas da tabela3
+for i in range(tabela3.shape[1]):
+    print("Exercício 18:", tabela3[:, i])
+    
+#Exercício 19 -> Transformar a tabela 3 em uma lista, e colocar dentro da variável: lista3
+lista3 = tabela3.flatten()
+print("Exercício 19 -> Lista3:", lista3)
+
+#Exercício 20 -> imprimir na tela, da lista3, os elementos de índice: 1, 4, 7 e 8
+elementos_indices = [1, 4, 7, 8]
+for i in elementos_indices:
+    print(f"Exercício 20 -> Elemento de índice {i}:", lista3[i])
+    
+lista3 = [item for sublist in lista3 for item in sublist]
