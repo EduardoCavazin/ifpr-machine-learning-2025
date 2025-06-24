@@ -1,0 +1,23 @@
+
+1-- CÓDIGO
+	Contar quantas classes possui.
+	Contar quantos registros cada classe.
+	Calcular o desbalanceamento.
+	IR = ( total / qtde_classe )
+
+
+DESENHAR O ESQUEMA UTILIZANDO EM SEU DESENHO OS PRINCIPAIS COMANDOS DO PYTHON
+PARA SUA SOLUÇÃO.
+
+-- abrir o dataset e colocar informações em um dicionário
+-- retornar o dicionário. comente sobre isso. qual vantagem?
+
+-- para que utilizar indexação negativa no python
+-- em que momento do seu código é feito essa indexação? qual o objetivo?
+
+-- explique unique. quantos valores eles podem retornar?
+
+-- como funciona a indexação de dicionários?
+-- como funciona a indexação de listas?
+
+
