@@ -1,0 +1,31 @@
+MAPEAMENTOS DO DATASET ADULT PROCESSADO
+==================================================
+
+MAPEAMENTO DAS CLASSES:
+------------------------------
+<=50K -> 0
+>50K -> 1
+
+COLUNAS DO DATASET FINAL:
+------------------------------
+1. age
+2. workclass
+3. fnlwgt
+4. education
+5. education_num
+6. marital_status
+7. occupation
+8. relationship
+9. race
+10. sex
+11. capital_gain
+12. capital_loss
+13. hours_per_week
+14. native_country
+15. income_encoded
+
+INFORMAÇÕES GERAIS:
+------------------------------
+Total de linhas: 30162
+Total de colunas: 15
+Arquivo original processado: adult.csv
