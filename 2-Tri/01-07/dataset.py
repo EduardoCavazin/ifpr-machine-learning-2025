@@ -40,7 +40,6 @@ def data_set( fname ):
     result = {}
     result['nome-arquivo'] = fname
     
-    
     data = pd.read_csv(fname, skipinitialspace=True, skip_blank_lines=True)
     
     data = data[~data.isin(['?']).any(axis=1)] 
