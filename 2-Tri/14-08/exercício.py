@@ -56,10 +56,12 @@ def executar_classificador_multiplas_vezes(classificador_nome, X_treino, y_trein
         inicio_tempo = time.time()
         
         # Criar novo modelo para cada execução (com random_state diferente)
-        if classificador_nome == "Perceptron":
-            modelo = Perceptron(max_iter=1000, random_state=i)
-        elif classificador_nome == "SVM":
-            modelo = SVC(random_state=i, gamma='auto', kernel='rbf')
+        # if classificador_nome == "Perceptron":
+        #     modelo = Perceptron(max_iter=1000, random_state=i)
+        # elif classificador_nome == "SVM":
+        #     modelo = SVC(random_state=i, gamma='auto', kernel='rbf')
+        
+        modelo = Perceptron(max_iter=1000, random_state=i)
         
         # Treinar o modelo
         modelo.fit(X_treino, y_treino)
