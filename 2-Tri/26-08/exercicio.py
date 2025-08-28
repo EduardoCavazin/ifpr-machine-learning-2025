@@ -21,6 +21,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.metrics import f1_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from random import shuffle
 import warnings
 import time
@@ -68,39 +69,28 @@ def processar_dataset(df):
     return df_processed
 
 
-def preparar_dados_ml(df, train_ratio=0.8):
-    print(f"\nPreparando dados para ML (Treino: {train_ratio*100:.0f}% / Teste: {(1-train_ratio)*100:.0f}%)...")
+def preparar_dados_ml(df):
+    print(f"\nPreparando dados para Cross Validation...")
     
     target_column = 'symboling'
     X = df.drop(columns=[target_column]).values
     y = df[target_column].values
     
-    indices = list(range(len(y)))
-    shuffle(indices)
+    print(f"Dados preparados: {len(X)} amostras para cross validation")
     
-    X_shuffled = X[indices]
-    y_shuffled = y[indices]
-    
-    split_point = int(len(y) * train_ratio)
-    
-    X_train = X_shuffled[:split_point]
-    y_train = y_shuffled[:split_point]
-    X_test = X_shuffled[split_point:]
-    y_test = y_shuffled[split_point:]
-    
-    print(f"Dados preparados: {len(X_train)} treino, {len(X_test)} teste")
-    
-    return X_train, X_test, y_train, y_test
+    return X, y
 
 
-def executar_experimentos(X_train, X_test, y_train, y_test, num_execucoes=20):
-    print(f"\nEXECUTANDO EXPERIMENTOS - {num_execucoes} EXECUÇÕES")
-    print("="*70)
+def executar_experimentos(X, y, num_ciclos=3, num_execucoes=20, k_folds=5):
+    print(f"\nEXECUTANDO {num_ciclos} CICLOS DE CROSS VALIDATION")
+    print(f"Cada fold: {num_execucoes} execuções independentes")
+    print(f"Total por ciclo: {k_folds} folds × {num_execucoes} execuções = {k_folds * num_execucoes} avaliações")
+    print(f"Total geral: {num_ciclos * k_folds * num_execucoes} avaliações por algoritmo")
+    print("="*80)
     
     print("Normalizando dados...")
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled = scaler.transform(X_test)
+    X_scaled = scaler.fit_transform(X)
     
     algoritmos = {
         'Perceptron': lambda: Perceptron(max_iter=1000, random_state=None),
@@ -110,66 +100,130 @@ def executar_experimentos(X_train, X_test, y_train, y_test, num_execucoes=20):
         'KNN': lambda: KNeighborsClassifier(n_neighbors=7)
     }
     
-    resultados = {nome: [] for nome in algoritmos.keys()}
-    tempos = {nome: [] for nome in algoritmos.keys()}  # Armazenar tempos
+    # Armazenar TODOS os scores individuais
+    todos_resultados = {nome: [] for nome in algoritmos.keys()}
+    todos_tempos = {nome: [] for nome in algoritmos.keys()}
+    
+    # Resultados por ciclo (média dos 5 folds)
+    resultados_por_ciclo = []
     
     warnings.filterwarnings('ignore')
     
-    print("\nIniciando execuções...")
-    print("Exec | " + " | ".join([f"{nome:>12}" for nome in algoritmos.keys()]) + " | " + " | ".join([f"{nome[:8]}(s)" for nome in algoritmos.keys()]))
-    print("-" * (6 + 15 * len(algoritmos) + 12 * len(algoritmos)))
-    
-    for execucao in range(num_execucoes):
-        scores_execucao = []
-        tempos_execucao = []
+    for ciclo in range(num_ciclos):
+        print(f"\n--- CICLO {ciclo + 1} ---")
         
-        for nome, criar_modelo in algoritmos.items():
-            inicio = time.time()
-            
-            modelo = criar_modelo()
-            modelo.fit(X_train_scaled, y_train)
-            y_pred = modelo.predict(X_test_scaled)
-            
-            fim = time.time()
-            tempo_execucao = fim - inicio
-            
-            f1 = f1_score(y_test, y_pred, average='macro', zero_division=0)
-            
-            resultados[nome].append(f1)
-            tempos[nome].append(tempo_execucao)
-            
-            scores_execucao.append(f1)
-            tempos_execucao.append(tempo_execucao)
+        medias_folds_ciclo = {nome: [] for nome in algoritmos.keys()}
         
-        scores_str = " | ".join([f"{score:>12.4f}" for score in scores_execucao])
-        tempos_str = " | ".join([f"{tempo:>9.3f}" for tempo in tempos_execucao])
-        print(f"{execucao+1:3d}  | {scores_str} | {tempos_str}")
+        # Criar os folds uma vez para este ciclo
+        skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=ciclo)
+        folds = list(skf.split(X_scaled, y))
+        
+        # Para cada fold
+        for fold_idx in range(k_folds):
+            print(f"\n  -- FOLD {fold_idx + 1} --")
+            print("Exec | " + " | ".join([f"{nome:>12}" for nome in algoritmos.keys()]) + " | " + " | ".join([f"{nome[:8]}(s)" for nome in algoritmos.keys()]))
+            print("-" * (6 + 15 * len(algoritmos) + 12 * len(algoritmos)))
+            
+            train_idx, test_idx = folds[fold_idx]
+            X_train_fold = X_scaled[train_idx]
+            X_test_fold = X_scaled[test_idx]
+            y_train_fold = y[train_idx]
+            y_test_fold = y[test_idx]
+            
+            scores_fold = {nome: [] for nome in algoritmos.keys()}
+            
+            # 20 execuções para este fold
+            for execucao in range(num_execucoes):
+                scores_execucao = []
+                tempos_execucao = []
+                
+                for nome, criar_modelo in algoritmos.items():
+                    inicio = time.time()
+                    
+                    modelo = criar_modelo()
+                    modelo.fit(X_train_fold, y_train_fold)
+                    y_pred = modelo.predict(X_test_fold)
+                    f1 = f1_score(y_test_fold, y_pred, average='macro', zero_division=0)
+                    
+                    fim = time.time()
+                    tempo_execucao = fim - inicio
+                    
+                    # Armazenar score e tempo
+                    scores_fold[nome].append(f1)
+                    todos_resultados[nome].append(f1)
+                    todos_tempos[nome].append(tempo_execucao)
+                    
+                    scores_execucao.append(f1)
+                    tempos_execucao.append(tempo_execucao)
+                
+                scores_str = " | ".join([f"{score:>12.4f}" for score in scores_execucao])
+                tempos_str = " | ".join([f"{tempo:>9.3f}" for tempo in tempos_execucao])
+                print(f"{execucao+1:3d}  | {scores_str} | {tempos_str}")
+            
+            # Calcular média do fold (20 execuções)
+            for nome in algoritmos.keys():
+                media_fold = np.mean(scores_fold[nome])
+                medias_folds_ciclo[nome].append(media_fold)
+            
+            medias_fold_str = " | ".join([f"{np.mean(scores_fold[nome]):>12.4f}" for nome in algoritmos.keys()])
+            print(f"Média Fold {fold_idx + 1}: {medias_fold_str}")
+        
+        # Calcular média do ciclo (média dos 5 folds)
+        medias_ciclo = {}
+        for nome in algoritmos.keys():
+            medias_ciclo[nome] = np.mean(medias_folds_ciclo[nome])
+        
+        resultados_por_ciclo.append(medias_ciclo)
+        
+        print(f"\nMédia Ciclo {ciclo + 1}: " + " | ".join([f"{medias_ciclo[nome]:>12.4f}" for nome in algoritmos.keys()]))
     
     warnings.filterwarnings('default')
     
-    return resultados, tempos
+    return todos_resultados, todos_tempos, resultados_por_ciclo
 
 
-def calcular_estatisticas(resultados, tempos):
-    print(f"\nESTATÍSTICAS FINAIS")
-    print("="*100)
+def calcular_estatisticas(resultados, tempos, resultados_por_ciclo):
+    print(f"\nESTATÍSTICAS DOS 3 CICLOS DE CROSS VALIDATION")
+    print("="*120)
+    
+    # Mostrar médias por ciclo (cada ciclo tem 100 scores: 20 execuções × 5 folds)
+    print(f"{'Algoritmo':<15} | {'Ciclo 1':<10} | {'Ciclo 2':<10} | {'Ciclo 3':<10} | {'Média Final':<12} | {'Desvio Ciclos':<12}")
+    print("-" * 85)
+    
+    algoritmos = list(resultados.keys())
+    medias_finais = {}
+    
+    for nome in algoritmos:
+        ciclo1 = resultados_por_ciclo[0][nome]  # Média de 100 scores
+        ciclo2 = resultados_por_ciclo[1][nome]  # Média de 100 scores  
+        ciclo3 = resultados_por_ciclo[2][nome]  # Média de 100 scores
+        
+        media_final = (ciclo1 + ciclo2 + ciclo3) / 3
+        desvio_ciclos = np.std([ciclo1, ciclo2, ciclo3])
+        
+        medias_finais[nome] = media_final
+        
+        print(f"{nome:<15} | {ciclo1:<10.4f} | {ciclo2:<10.4f} | {ciclo3:<10.4f} | {media_final:<12.4f} | {desvio_ciclos:<12.4f}")
+    
+    print(f"\nESTATÍSTICAS DETALHADAS - TODOS OS 300 SCORES")
+    print("="*120)
     
     estatisticas = {}
     
-    print(f"{'Algoritmo':<15} | {'F1 Média':<8} | {'F1 Desvio':<8} | {'F1 Min':<8} | {'F1 Max':<8} | {'Tempo Médio':<12} | {'Tempo Total':<12}")
-    print("-" * 98)
+    print(f"{'Algoritmo':<15} | {'F1 Média (300)':<12} | {'F1 Desvio (300)':<12} | {'F1 Min':<10} | {'F1 Max':<10} | {'Tempo Médio':<12} | {'Tempo Total':<12}")
+    print("-" * 118)
     
-    for nome in resultados.keys():
-        scores = resultados[nome]
-        times = tempos[nome]
+    for nome in algoritmos:
+        scores = resultados[nome]  # 300 scores individuais
+        times = tempos[nome]      # 60 tempos (20 execuções × 3 ciclos)
         
-        # Estatísticas F1-Score
+        # Estatísticas F1-Score de todos os 300 scores individuais
         media_f1 = np.mean(scores)
         desvio_f1 = np.std(scores)
         minimo_f1 = np.min(scores)
         maximo_f1 = np.max(scores)
         
-        # Estatísticas Tempo
+        # Estatísticas Tempo (60 execuções)
         tempo_medio = np.mean(times)
         tempo_total = np.sum(times)
         
@@ -180,35 +234,40 @@ def calcular_estatisticas(resultados, tempos):
             'maximo_f1': maximo_f1,
             'tempo_medio': tempo_medio,
             'tempo_total': tempo_total,
+            'media_final_ciclos': medias_finais[nome],
             'scores': scores,
-            'tempos': times
+            'tempos': times,
+            'total_scores': len(scores),
+            'total_execucoes': len(times)
         }
         
-        print(f"{nome:<15} | {media_f1:<8.4f} | {desvio_f1:<8.4f} | {minimo_f1:<8.4f} | {maximo_f1:<8.4f} | {tempo_medio:<12.3f}s | {tempo_total:<12.3f}s")
+        print(f"{nome:<15} | {media_f1:<12.4f} | {desvio_f1:<12.4f} | {minimo_f1:<10.4f} | {maximo_f1:<10.4f} | {tempo_medio:<12.3f}s | {tempo_total:<12.3f}s")
+    
+    print(f"\nResumo: {len(scores)} scores individuais por algoritmo ({3} ciclos × {20} execuções × {5} folds)")
     
     return estatisticas
 
 
 def exibir_ranking(estatisticas):
-    print(f"\nRANKING DE PERFORMANCE (por F1-Score médio)")
-    print("="*60)
+    print(f"\nRANKING BASEADO NA MÉDIA DOS 3 CICLOS")
+    print("="*70)
     
-    ranking = sorted(estatisticas.items(), key=lambda x: x[1]['media_f1'], reverse=True)
+    ranking = sorted(estatisticas.items(), key=lambda x: x[1]['media_final_ciclos'], reverse=True)
     
     medalhas = ["1º", "2º", "3º", "4º", "5º"]
     
     for i, (nome, stats) in enumerate(ranking):
         medalha = medalhas[i] if i < len(medalhas) else f"{i+1}º"
-        print(f"{medalha} {nome:<15}: F1={stats['media_f1']:.4f} (±{stats['desvio_f1']:.4f}) | Tempo={stats['tempo_medio']:.3f}s")
+        print(f"{medalha} {nome:<15}: Média Final={stats['media_final_ciclos']:.4f} | F1 Geral={stats['media_f1']:.4f} (±{stats['desvio_f1']:.4f})")
     
     print(f"\nRANKING DE VELOCIDADE (por tempo médio)")
-    print("="*60)
+    print("="*70)
     
     ranking_tempo = sorted(estatisticas.items(), key=lambda x: x[1]['tempo_medio'])
     
     for i, (nome, stats) in enumerate(ranking_tempo):
         medalha = medalhas[i] if i < len(medalhas) else f"{i+1}º"
-        print(f"{medalha} {nome:<15}: Tempo={stats['tempo_medio']:.3f}s | F1={stats['media_f1']:.4f}")
+        print(f"{medalha} {nome:<15}: Tempo={stats['tempo_medio']:.3f}s | Média Final={stats['media_final_ciclos']:.4f}")
 
 
 def main():
@@ -220,11 +279,11 @@ def main():
         
         df_processed = processar_dataset(df)
         
-        X_train, X_test, y_train, y_test = preparar_dados_ml(df_processed, train_ratio=0.8)
+        X, y = preparar_dados_ml(df_processed)
         
-        resultados, tempos = executar_experimentos(X_train, X_test, y_train, y_test, num_execucoes=20)
+        resultados, tempos, resultados_por_ciclo = executar_experimentos(X, y, num_ciclos=3, num_execucoes=20, k_folds=5)
         
-        estatisticas = calcular_estatisticas(resultados, tempos)
+        estatisticas = calcular_estatisticas(resultados, tempos, resultados_por_ciclo)
         
         exibir_ranking(estatisticas)
         
@@ -239,4 +298,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
