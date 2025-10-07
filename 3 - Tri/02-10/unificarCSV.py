@@ -138,61 +138,39 @@ print(f"Autores únicos: {filtered_data['author'].unique()}")
 print()
 
 
-# Primeiro, vamos identificar os datasets únicos
+# Identificar datasets únicos nos dados filtrados
 datasets_unicos = filtered_data['dataset'].unique()
 print(f"=== DATASETS ENCONTRADOS ===")
 for i, dataset in enumerate(datasets_unicos, 1):
     print(f"Dataset {i}: {dataset}")
 print()
 
-# Criar mapeamento de colunas v1-v20 para nomes dos datasets
-# Assumindo que cada autor testou os mesmos datasets na mesma ordem
-dataset_mapping = {}
-for i, dataset_name in enumerate(datasets_unicos[:20], 1):  # Limitar a 20 datasets
-    dataset_mapping[f'v{i}'] = dataset_name
-
-print("=== MAPEAMENTO COLUNA -> DATASET ===")
-for col, dataset in dataset_mapping.items():
-    print(f"{col} -> {dataset}")
-print()
-
-# Verificar valores faltantes
-value_columns = [f'v{i}' for i in range(1, 21)]
-missing_data = []
-
-for col in value_columns:
-    missing_count = filtered_data[col].isna().sum()
-    if missing_count > 0:
-        missing_data.append((col, missing_count))
-
-if missing_data:
-    print("=== VALORES FALTANTES ENCONTRADOS ===")
-    for col, count in missing_data:
-        print(f"Coluna {col}: {count} valores faltantes")
-        # Identificar autores com dados faltantes
-        missing_authors = filtered_data[filtered_data[col].isna()]['author'].unique()
-        print(f"  Autores afetados: {list(missing_authors)}")
-    print("\n  AÇÃO NECESSÁRIA: Contactar os autores mencionados para completar os dados!")
-else:
-    print(" Nenhum valor faltante encontrado nos dados filtrados!")
-
-print()
-
-
-# Preparar dados para o boxplot usando nomes dos datasets
+# Preparar dados para o boxplot agrupando por dataset (cada linha é um dataset)
 plot_data = []
 plot_labels = []
+value_columns = [f'v{i}' for i in range(1, 21)]
 
-for col in value_columns:
-    if col in dataset_mapping:
-        dataset_name = dataset_mapping[col]
-        valid_values = filtered_data[col].dropna()
-        # Convert to numeric if dtype is object
-        if valid_values.dtype == 'O':
-            valid_values = pd.to_numeric(valid_values, errors='coerce')
-        if len(valid_values) > 0:
-            plot_data.append(valid_values.values)
-            plot_labels.append(dataset_name)
+for dataset in datasets_unicos:
+    # Filtrar dados para este dataset específico
+    dataset_rows = filtered_data[filtered_data['dataset'] == dataset]
+    
+    # Coletar todos os valores das 20 colunas para este dataset
+    dataset_values = []
+    for _, row in dataset_rows.iterrows():
+        for col in value_columns:
+            if pd.notna(row[col]):  # Só adicionar valores não-nulos
+                try:
+                    val = float(row[col])
+                    dataset_values.append(val)
+                except (ValueError, TypeError):
+                    continue
+    
+    if len(dataset_values) > 0:
+        plot_data.append(dataset_values)
+        plot_labels.append(dataset)
+        print(f"Dataset '{dataset}': {len(dataset_values)} valores coletados")
+
+print()
 
 # Criar o boxplot com nomes dos datasets
 plt.figure(figsize=(18, 10))
@@ -207,42 +185,62 @@ plt.tight_layout()
 plt.show()
 
 
-# Estatísticas descritivas usando nomes dos datasets
+# Estatísticas descritivas por dataset (baseado nas linhas, não colunas)
 print("=== ESTATÍSTICAS DESCRITIVAS POR DATASET ===")
-for col in value_columns:
-    if col in dataset_mapping:
-        dataset_name = dataset_mapping[col]
-        valid_values = filtered_data[col].dropna()
-        if valid_values.dtype == 'O':
-            valid_values = pd.to_numeric(valid_values, errors='coerce')
-        if len(valid_values) > 0:
-            print(f"{dataset_name}: Média={valid_values.mean():.4f}, "
-                  f"Mediana={valid_values.median():.4f}, "
-                  f"Std={valid_values.std():.4f}, "
-                  f"Min={valid_values.min():.4f}, "
-                  f"Max={valid_values.max():.4f}")
+value_columns = [f'v{i}' for i in range(1, 21)]
+
+for dataset in datasets_unicos:
+    dataset_rows = filtered_data[filtered_data['dataset'] == dataset]
+    
+    # Coletar todos os valores das 20 colunas para este dataset
+    dataset_values = []
+    for _, row in dataset_rows.iterrows():
+        for col in value_columns:
+            if pd.notna(row[col]):
+                try:
+                    val = float(row[col])
+                    dataset_values.append(val)
+                except (ValueError, TypeError):
+                    continue
+    
+    if len(dataset_values) > 0:
+        dataset_values = np.array(dataset_values)
+        print(f"{dataset}: Média={dataset_values.mean():.4f}, "
+              f"Mediana={np.median(dataset_values):.4f}, "
+              f"Std={dataset_values.std():.4f}, "
+              f"Min={dataset_values.min():.4f}, "
+              f"Max={dataset_values.max():.4f}")
 
 # Análise de outliers por dataset
 print("\n=== ANÁLISE DE OUTLIERS POR DATASET ===")
-for col in value_columns:
-    if col in dataset_mapping:
-        dataset_name = dataset_mapping[col]
-        valid_values = filtered_data[col].dropna()
-        if valid_values.dtype == 'O':
-            valid_values = pd.to_numeric(valid_values, errors='coerce')
-        if len(valid_values) > 0:
-            q1 = valid_values.quantile(0.25)
-            q3 = valid_values.quantile(0.75)
-            iqr = q3 - q1
-            lower_bound = q1 - 1.5 * iqr
-            upper_bound = q3 + 1.5 * iqr
-            
-            outliers = valid_values[(valid_values < lower_bound) | (valid_values > upper_bound)]
-            
-            if len(outliers) > 0:
-                print(f"{dataset_name}: {len(outliers)} outliers encontrados -> {outliers.values}")
-            else:
-                print(f"{dataset_name}: Nenhum outlier (Range: {lower_bound:.4f} a {upper_bound:.4f})")
+for dataset in datasets_unicos:
+    dataset_rows = filtered_data[filtered_data['dataset'] == dataset]
+    
+    # Coletar todos os valores das 20 colunas para este dataset
+    dataset_values = []
+    for _, row in dataset_rows.iterrows():
+        for col in value_columns:
+            if pd.notna(row[col]):
+                try:
+                    val = float(row[col])
+                    dataset_values.append(val)
+                except (ValueError, TypeError):
+                    continue
+    
+    if len(dataset_values) > 0:
+        dataset_values = np.array(dataset_values)
+        q1 = np.percentile(dataset_values, 25)
+        q3 = np.percentile(dataset_values, 75)
+        iqr = q3 - q1
+        lower_bound = q1 - 1.5 * iqr
+        upper_bound = q3 + 1.5 * iqr
+        
+        outliers = dataset_values[(dataset_values < lower_bound) | (dataset_values > upper_bound)]
+        
+        if len(outliers) > 0:
+            print(f"{dataset}: {len(outliers)} outliers encontrados -> {outliers}")
+        else:
+            print(f"{dataset}: Nenhum outlier (Range: {lower_bound:.4f} a {upper_bound:.4f})")
 
 print("\n=== RESUMO GERAL DOS DADOS ===")
 all_values = []
@@ -275,16 +273,22 @@ print()
 # Boxplot alternativo usando seaborn (mais bonito)
 plt.figure(figsize=(15, 8))
 
-# Converter dados para formato long para seaborn com nomes dos datasets
+# Converter dados para formato long para seaborn - agrupando por dataset nas linhas
 long_data = []
-for col in value_columns:
-    if col in dataset_mapping:
-        dataset_name = dataset_mapping[col]
-        valid_values = filtered_data[col].dropna()
-        if valid_values.dtype == 'O':
-            valid_values = pd.to_numeric(valid_values, errors='coerce')
-        for val in valid_values:
-            long_data.append({'Dataset': dataset_name, 'F1 Score': val})
+value_columns = [f'v{i}' for i in range(1, 21)]
+
+for dataset in datasets_unicos:
+    dataset_rows = filtered_data[filtered_data['dataset'] == dataset]
+    
+    # Para cada linha deste dataset, coletar os 20 valores
+    for _, row in dataset_rows.iterrows():
+        for col in value_columns:
+            if pd.notna(row[col]):
+                try:
+                    val = float(row[col])
+                    long_data.append({'Dataset': dataset, 'F1 Score': val})
+                except (ValueError, TypeError):
+                    continue
 
 long_df = pd.DataFrame(long_data)
 
@@ -304,12 +308,15 @@ if len(long_df) > 0:
     print(f"\n=== RESUMO FINAL ===")
     print(f"Classificador analisado: Naive Bayes")
     print(f"Métrica analisada: F1 Score")
-    print(f"Total de datasets analisados: {len(dataset_mapping)}")
-    print(f"Datasets: {list(dataset_mapping.values())}")
+    print(f"Total de datasets analisados: {len(datasets_unicos)}")
+    print(f"Datasets: {datasets_unicos}")
     print(f"Total de valores analisados: {len(long_df)}")
     
-    if missing_data:
-        print(f"⚠️  Atenção: {len(missing_data)} colunas têm valores faltantes")
+    # Verificar completude dos dados
+    total_values_expected = len(datasets_unicos) * 20  # 20 valores por dataset
+    if len(long_df) < total_values_expected:
+        missing_count = total_values_expected - len(long_df)
+        print(f"⚠️  Atenção: {missing_count} valores faltantes de {total_values_expected} esperados")
     else:
         print("✅ Todos os dados estão completos!")
 else:
